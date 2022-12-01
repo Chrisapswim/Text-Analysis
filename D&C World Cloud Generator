@@ -1,0 +1,145 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import re
+import string
+from textblob import TextBlob
+from wordcloud import WordCloud, STOPWORDS
+import matplotlib.pyplot as plt
+from collections import Counter 
+  
+# counts word frequency
+def count_words(text):                  
+    skips = [".", ", ", ":", ";", "'", '"'] 
+    for ch in skips: 
+        text = text.replace(ch, "") 
+    word_counts = {} 
+    for word in text.split(" "): 
+        if word in word_counts: 
+            word_counts[word]+= 1 
+        else: 
+            word_counts[word]= 1 
+    return word_counts 
+  
+    # >>>count_words(text) You can check the function 
+  
+# counts word frequency using
+# Counter from collections 
+def count_words_fast(text):     
+    text = text.lower() 
+    skips = [".", ", ", ":", ";", "'", '"'] 
+    for ch in skips: 
+        text = text.replace(ch, "") 
+    word_counts = Counter(text.split(" ")) 
+    return word_counts 
+  
+    # >>>count_words_fast(text) You can check the function 
+
+def word_stats(word_counts):      
+    num_unique = len(word_counts) 
+    counts = word_counts.values() 
+    return (num_unique, counts) 
+
+#This piece of code web scrapes www.churchofjesuschrist.org for Doctrine and Covenents
+#The output is a data set containing basic text analysis metrics like word count and text sentiment
+
+dc_sections_list = []
+dc_text_list= []
+url_list = []
+polarity_list = []
+subjectivity_list = []
+dc_intro_list = []
+dc_wordcloud_list = []
+dc_word_count = []
+dc_uniquie_words = []
+
+request = requests.get('https://www.churchofjesuschrist.org/study/scriptures/dc-testament?lang=eng')
+soup = BeautifulSoup(request.content, 'html.parser')
+
+main_a_tags = soup.find_all('a', class_= 'item-U_5Ca')
+
+dc_sections_list = soup.find_all('div', class_= 'itemTitle-MXhtV')
+
+for a in main_a_tags: 
+  url_list += [str('https://www.churchofjesuschrist.org/') + a.get('href')]
+
+dc_sections_list = dc_sections_list[5:-4]
+
+del dc_sections_list[75]
+
+dc_sections_list = ['D&C ' + str(text.text.split(' ')[3]) for text in dc_sections_list]
+
+url_list = url_list[2:140]
+
+c = 0
+
+while len(url_list) > c:
+  if c != 76:
+    request1= requests.get(url_list[c])
+    soup1 = BeautifulSoup(request1.content, 'html.parser')
+
+    #section = soup1.find_all('p', class_= 'title-number')
+
+    #section_number = 'D&C ' + str(section[0].text.split(' ')[3])
+
+    #dc_sections_list.append(section_number)
+
+    p_tag = soup1.find_all('p', class_= 'verse')
+
+    d=0
+
+    while len(p_tag) > d:
+      for sup in p_tag[d].findAll('sup'):
+        sup.extract()
+      d = d + 1
+
+    i = 0
+
+    while len(p_tag) > i:
+      for span in p_tag[i].findAll('span'):
+        span.extract()
+      i = i + 1
+
+    dc_list = [word.text for word in p_tag]
+
+    raw_text = ','.join(str(e) for e in dc_list)
+
+    valence = TextBlob(raw_text)
+
+    polarity_list.append(valence.sentiment[0])
+    subjectivity_list.append(valence.sentiment[1])
+
+    text = raw_text.replace(';',' ').replace('.',' ')
+
+    text = text.replace(',','').replace('—',' ')
+
+    dc_text_list.append(text)
+
+    p_tag_intro = soup1.find_all('p', class_= 'study-intro')
+
+    intro = p_tag_intro[0].text
+
+    dc_intro_list.append(intro)
+
+    dc_wordcloud_list.append(map(plt.figure, plt.get_fignums()))
+
+    word_counts = count_words_fast(text)         
+    dc_word_count.append(sum(word_stats(word_counts)[1]))
+    dc_uniquie_words.append(word_stats(word_counts)[0])
+  else:
+    pass
+
+  c = c + 1
+
+
+dc_df = pd.DataFrame()
+
+dc_df['D&C Sections'] = pd.Series(dc_sections_list)
+dc_df['D&C Intro'] = pd.Series(dc_intro_list)
+dc_df['D&C Text'] = pd.Series(dc_text_list)
+dc_df['D&C Polarity'] = pd.Series(polarity_list)
+dc_df['D&C Subjectivity'] = pd.Series(subjectivity_list)
+dc_df['Number of Words'] = pd.Series(dc_word_count)
+dc_df['Number of Unique Words'] = pd.Series(dc_uniquie_words)
+
+dc_df
