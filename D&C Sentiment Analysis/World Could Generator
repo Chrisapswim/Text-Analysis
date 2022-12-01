@@ -1,0 +1,24 @@
+from textblob import TextBlob
+from wordcloud import WordCloud, STOPWORDS
+import matplotlib.pyplot as plt
+
+section = 'D&C 124'  #@param {type: "string"}
+
+if int(section.split(' ')[1]) < 76:
+  index = int(section.split(' ')[1]) - 1
+else:
+  index = int(section.split(' ')[1]) - 2
+
+text = dc_df[dc_df['D&C Sections'] == section]['D&C Text'][index]
+
+my_stopwords = set(STOPWORDS)
+
+my_stopwords.update(['yea','caused','except','thine','thy','shalt','hast','thee','even','let','saith','others','say','made','doth','behold','thou','verily','neither','given','might','upon','u','will','time','people','ye','know','one','may','unto','us','come','must','stand','live','thing','said','today','called','year','many','now','name','great','member','word','words','lives','s','every','day','world','things','go'])
+
+text_word_cloud = WordCloud(background_color="white", stopwords = my_stopwords).generate(str(text))
+
+plt.imshow(text_word_cloud, interpolation='bilinear')
+plt.axis('off')
+
+print(dc_df['D&C Intro'][index])
+plt.show()
